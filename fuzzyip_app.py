@@ -34,7 +34,7 @@ from fuzzyip.core import (
 )
 from fuzzyip.report import pdf_bytes
 
-STEPS = ["Projeto", "Acoes", "Avaliacao", "Interpretacao", "Ranking", "Relatorio"]
+STEPS = ["Projeto", "Acoes", "Avaliacao", "Interpretacao", "Ranking"]
 
 
 def asset_path(*names: str) -> Path | None:
@@ -935,7 +935,7 @@ def render_ranking_table(ranking: pd.DataFrame) -> None:
 
 
 def ranking_outputs() -> None:
-    st.subheader("5. Ranking e leitura consultiva")
+    st.subheader("5. Ranking, leitura consultiva e relatorio")
     ranking = rank_actions(st.session_state.actions)
     st.session_state.ranking = ranking
     if ranking.empty:
@@ -959,10 +959,16 @@ def ranking_outputs() -> None:
 
     render_ranking_table(ranking)
     st.info(consultive_conclusion(ranking))
-    left, right = st.columns([1, 5])
+    data = pdf_bytes(project=st.session_state.project, actions=st.session_state.actions, ranking=ranking)
+    left, right = st.columns([1.25, 5])
     with left:
-        if st.button("Gerar relatorio", type="primary"):
-            go_next("Ranking gerado. Avancamos para o relatorio PDF.")
+        st.download_button(
+            "Baixar PDF",
+            data=data,
+            file_name=PDF_FILE_NAME,
+            mime="application/pdf",
+            type="primary",
+        )
     with right:
         render_back_button()
 
@@ -995,10 +1001,8 @@ def main() -> None:
         assessment_inputs()
     elif current_step == 3:
         matrix_reference()
-    elif current_step == 4:
-        ranking_outputs()
     else:
-        export_outputs()
+        ranking_outputs()
 
 
 if __name__ == "__main__":
