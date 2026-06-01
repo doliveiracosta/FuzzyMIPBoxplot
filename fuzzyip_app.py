@@ -34,6 +34,8 @@ from fuzzyip.core import (
 )
 from fuzzyip.report import pdf_bytes
 
+STEPS = ["Projeto", "Acoes", "Avaliacao", "Interpretacao", "Ranking", "Relatorio"]
+
 
 def asset_path(*names: str) -> Path | None:
     base = Path(__file__).resolve().parent
@@ -94,9 +96,25 @@ def init_state() -> None:
             ]
         ),
         "ranking": pd.DataFrame(),
+        "current_step": 0,
+        "notice": "",
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
+
+
+def go_to_step(index: int, notice: str = "") -> None:
+    st.session_state.current_step = max(0, min(index, len(STEPS) - 1))
+    st.session_state.notice = notice
+    st.rerun()
+
+
+def go_next(notice: str = "") -> None:
+    go_to_step(st.session_state.current_step + 1, notice)
+
+
+def go_previous() -> None:
+    go_to_step(st.session_state.current_step - 1)
 
 
 def render_cover() -> None:
@@ -148,6 +166,19 @@ def render_cover() -> None:
             height: 18px;
             object-fit: contain;
         }
+        .step-shell {
+            margin: .5rem 0 1.25rem;
+        }
+        .step-label {
+            color: #6b7280;
+            font-size: .82rem;
+            margin-bottom: .35rem;
+        }
+        .step-hint {
+            color: #6b7280;
+            font-size: .86rem;
+            margin-top: .25rem;
+        }
         .metric-band {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -169,6 +200,69 @@ def render_cover() -> None:
         .metric-card strong {
             font-size: 1.65rem;
             color: #111827;
+        }
+        .boxplot-card {
+            min-width: 190px;
+        }
+        .boxplot-plot {
+            position: relative;
+            height: 38px;
+            margin-top: 8px;
+        }
+        .boxplot-track {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 18px;
+            height: 2px;
+            background: #e5e7eb;
+        }
+        .boxplot-whisker {
+            position: absolute;
+            top: 18px;
+            height: 2px;
+            background: #64748b;
+        }
+        .boxplot-box {
+            position: absolute;
+            top: 9px;
+            height: 20px;
+            background: #bfdbfe;
+            border: 1px solid #2563eb;
+            border-radius: 4px;
+        }
+        .boxplot-median {
+            position: absolute;
+            top: 6px;
+            height: 26px;
+            width: 3px;
+            background: #1d4ed8;
+            transform: translateX(-50%);
+        }
+        .boxplot-cap {
+            position: absolute;
+            top: 11px;
+            height: 16px;
+            width: 2px;
+            background: #64748b;
+            transform: translateX(-50%);
+        }
+        .boxplot-critical {
+            position: absolute;
+            top: 14px;
+            width: 9px;
+            height: 9px;
+            background: #dc2626;
+            border: 1px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 0 1px rgba(220,38,38,.35);
+            transform: translateX(-50%);
+        }
+        .boxplot-note {
+            font-size: .72rem;
+            color: #6b7280;
+            line-height: 1.2;
+            margin-top: 1px;
         }
         .matrix-table {
             border-collapse: collapse;
@@ -412,7 +506,38 @@ def render_usage_guide() -> None:
             4. Atribua impacto e probabilidade por escala fuzzy de 0 a 1.
             5. Gere o ranking e use a conclusao consultiva para apoiar a decisao.
             """
-        )
+    )
+
+
+def render_step_navigation() -> int:
+    current = int(st.session_state.current_step)
+    st.markdown('<div class="step-shell">', unsafe_allow_html=True)
+    st.markdown('<div class="step-label">Etapa</div>', unsafe_allow_html=True)
+    selected = st.radio(
+        "Etapa",
+        options=STEPS,
+        index=current,
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    selected_index = STEPS.index(selected)
+    if selected_index != current:
+        st.session_state.current_step = selected_index
+        st.session_state.notice = ""
+        st.rerun()
+
+    st.progress((current + 1) / len(STEPS), text=f"Etapa {current + 1} de {len(STEPS)}")
+    st.markdown('</div>', unsafe_allow_html=True)
+    if st.session_state.notice:
+        st.success(st.session_state.notice)
+        st.session_state.notice = ""
+    return current
+
+
+def render_back_button() -> None:
+    if st.session_state.current_step > 0:
+        if st.button("Voltar etapa", key=f"back_{st.session_state.current_step}"):
+            go_previous()
 
 
 def project_inputs() -> None:
@@ -434,7 +559,8 @@ def project_inputs() -> None:
             "Horizonte": horizon,
             "Contexto decisorio": context,
         }
-        st.success("Projeto salvo.")
+        go_next("Projeto salvo. Avancamos para o cadastro das acoes.")
+    render_back_button()
 
 
 def actions_inputs() -> None:
@@ -467,7 +593,8 @@ def actions_inputs() -> None:
         )
     if st.button("Salvar acoes", type="primary"):
         st.session_state.actions = pd.DataFrame(rows)
-        st.success("Acoes salvas.")
+        go_next("Acoes salvas. Avancamos para a avaliacao fuzzy.")
+    render_back_button()
 
 
 def class_chip(classification: str) -> str:
@@ -522,6 +649,7 @@ def assessment_inputs() -> None:
     actions = st.session_state.actions.copy()
     if actions.empty:
         st.warning("Cadastre ao menos uma acao antes da avaliacao.")
+        render_back_button()
         return
 
     header = st.columns([2.3, 1.35, 1.45, 1.45, 1.8, 1.15])
@@ -598,7 +726,8 @@ def assessment_inputs() -> None:
     if st.button("Atualizar avaliacao", type="primary"):
         st.session_state.actions = pd.DataFrame(updated_rows)
         st.session_state.ranking = rank_actions(st.session_state.actions)
-        st.success("Avaliacao atualizada e ranking recalculado.")
+        go_next("Avaliacao atualizada. Avancamos para a interpretacao da prioridade.")
+    render_back_button()
 
 
 def render_matrix_table(title: str, matrix: dict[str, dict[str, str]], impact_order: list[str]) -> None:
@@ -675,6 +804,13 @@ def matrix_reference() -> None:
         """,
         unsafe_allow_html=True,
     )
+    left, right = st.columns([1, 5])
+    with left:
+        if st.button("Ver ranking", type="primary"):
+            st.session_state.ranking = rank_actions(st.session_state.actions)
+            go_next("Interpretacao concluida. Avancamos para o ranking consultivo.")
+    with right:
+        render_back_button()
 
 
 def priority_css_class(position: int, total: int, result: object | None = None) -> str:
@@ -751,80 +887,38 @@ def render_ranking_table(ranking: pd.DataFrame) -> None:
     )
 
 
-def horizontal_boxplot_metric_card(ranking: pd.DataFrame) -> str:
-    """Retorna um card HTML com boxplot horizontal compacto, sem escala visivel."""
-    index_column = "Indice ajustado" if "Indice ajustado" in ranking.columns else "Indice I/P"
-    values = pd.to_numeric(ranking[index_column], errors="coerce").dropna()
-
-    if values.empty or len(values) < 2:
-        return '<div class="metric-card"><span>Distribuicao I/P</span><strong style="font-size:1rem;">Dados insuficientes</strong></div>'
-
-    q1 = float(values.quantile(0.25))
-    median = float(values.quantile(0.50))
-    q3 = float(values.quantile(0.75))
-    min_value = float(values.min())
-    max_value = float(values.max())
-    iqr = q3 - q1
-    lower = max(0.0, q1 - 1.5 * iqr)
-    upper = min(1.0, q3 + 1.5 * iqr)
-
-    full_series = pd.to_numeric(ranking[index_column], errors="coerce")
-    outlier_values = full_series[(full_series < lower) | (full_series > upper)].dropna().tolist()
-
-    def pct(value: float) -> float:
-        return max(0.0, min(100.0, value * 100.0))
-
-    outlier_html = "".join(
-        f'<span title="Ponto fora da curva: {float(v):.4f}" '
-        f'style="position:absolute; left:{pct(float(v)):.2f}%; top:13px; width:8px; height:8px; '
-        f'background:#dc2626; border-radius:50%; transform:translateX(-50%);"></span>'
-        for v in outlier_values
-    )
-
-    status = "sem outliers" if not outlier_values else f"{len(outlier_values)} outlier(s)"
-    mean_value = float(values.mean())
-
-    return (
-        '<div class="metric-card">'
-        '<span>Distribuicao I/P</span>'
-        '<div style="position:relative; height:36px; margin-top:8px;">'
-        '<div style="position:absolute; left:0; right:0; top:17px; height:2px; background:#e5e7eb;"></div>'
-        f'<div style="position:absolute; left:{pct(min_value):.2f}%; width:{max(pct(max_value)-pct(min_value), 0.5):.2f}%; top:17px; height:2px; background:#64748b;"></div>'
-        f'<div style="position:absolute; left:{pct(q1):.2f}%; width:{max(pct(q3)-pct(q1), 1.0):.2f}%; top:8px; height:20px; background:#bfdbfe; border:1px solid #2563eb; border-radius:4px;"></div>'
-        f'<div title="Mediana: {median:.4f}" style="position:absolute; left:{pct(median):.2f}%; top:5px; height:26px; width:3px; background:#1d4ed8; transform:translateX(-50%);"></div>'
-        f'<div title="Minimo: {min_value:.4f}" style="position:absolute; left:{pct(min_value):.2f}%; top:10px; height:16px; width:2px; background:#64748b;"></div>'
-        f'<div title="Maximo: {max_value:.4f}" style="position:absolute; left:{pct(max_value):.2f}%; top:10px; height:16px; width:2px; background:#64748b;"></div>'
-        f'{outlier_html}'
-        '</div>'
-        f'<div style="font-size:.72rem; color:#6b7280; margin-top:2px;">media {mean_value:.4f} | {status}</div>'
-        '</div>'
-    )
-
-
 def ranking_outputs() -> None:
     st.subheader("5. Ranking e leitura consultiva")
     ranking = rank_actions(st.session_state.actions)
     st.session_state.ranking = ranking
     if ranking.empty:
         st.warning("Nao ha ranking calculado.")
+        render_back_button()
         return
 
     stats = portfolio_stats(ranking)
-    boxplot_card = horizontal_boxplot_metric_card(ranking)
-
-    metrics_html = (
-        '<div class="metric-band">'
-        f'<div class="metric-card"><span>Acoes avaliadas</span><strong>{stats.total_actions}</strong></div>'
-        f'<div class="metric-card"><span>Ameacas</span><strong>{stats.threats}</strong></div>'
-        f'<div class="metric-card"><span>Oportunidades</span><strong>{stats.opportunities}</strong></div>'
-        f'<div class="metric-card"><span>Prioridade alta</span><strong>{stats.high_priority}</strong></div>'
-        f'{boxplot_card}'
-        '</div>'
+    st.markdown(
+        f"""
+        <div class="metric-band">
+            <div class="metric-card"><span>Acoes avaliadas</span><strong>{stats.total_actions}</strong></div>
+            <div class="metric-card"><span>Ameacas</span><strong>{stats.threats}</strong></div>
+            <div class="metric-card"><span>Oportunidades</span><strong>{stats.opportunities}</strong></div>
+            <div class="metric-card"><span>Prioridade alta</span><strong>{stats.high_priority}</strong></div>
+            <div class="metric-card"><span>Media I/P</span><strong>{stats.mean_ip_index:.4f}</strong></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    st.markdown(metrics_html, unsafe_allow_html=True)
 
     render_ranking_table(ranking)
     st.info(consultive_conclusion(ranking))
+    left, right = st.columns([1, 5])
+    with left:
+        if st.button("Gerar relatorio", type="primary"):
+            go_next("Ranking gerado. Avancamos para o relatorio PDF.")
+    with right:
+        render_back_button()
+
 
 def export_outputs() -> None:
     st.subheader("6. Relatorio PDF")
@@ -836,6 +930,7 @@ def export_outputs() -> None:
         file_name=PDF_FILE_NAME,
         mime="application/pdf",
     )
+    render_back_button()
 
 
 def main() -> None:
@@ -843,18 +938,20 @@ def main() -> None:
     init_state()
     render_cover()
     render_usage_guide()
+    current_step = render_step_navigation()
 
-    project_inputs()
-    st.divider()
-    actions_inputs()
-    st.divider()
-    assessment_inputs()
-    st.divider()
-    matrix_reference()
-    st.divider()
-    ranking_outputs()
-    st.divider()
-    export_outputs()
+    if current_step == 0:
+        project_inputs()
+    elif current_step == 1:
+        actions_inputs()
+    elif current_step == 2:
+        assessment_inputs()
+    elif current_step == 3:
+        matrix_reference()
+    elif current_step == 4:
+        ranking_outputs()
+    else:
+        export_outputs()
 
 
 if __name__ == "__main__":

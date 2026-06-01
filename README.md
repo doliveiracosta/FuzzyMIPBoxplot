@@ -51,6 +51,3 @@ streamlit run fuzzyip_app.py
 
 Desenvolvido por David de Oliveira Costa, Doutorando em Engenharia de Computacao, 2026.
 
-## Projeto paralelo: FuzzyMIP com boxplot horizontal
-
-Esta versão mantém o fluxo principal do FuzzyMIP e substitui o card de média I/P por um boxplot horizontal compacto, sem escala visível. O objetivo é evidenciar, na própria faixa de indicadores, se as ações avaliadas apresentam pontuações próximas entre si ou se alguma ação se destaca como mais crítica ou prioritária.
