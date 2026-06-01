@@ -852,9 +852,24 @@ def boxplot_card(ranking: pd.DataFrame) -> str:
     q2 = float(values.quantile(0.50)) * 100
     q3 = float(values.quantile(0.75)) * 100
     q4 = float(values.max()) * 100
+    iqr = q3 - q1
+    upper_fence = q3 + 1.5 * iqr
+    outliers = sorted([float(value) * 100 for value in values if float(value) * 100 > upper_fence])
+    outlier_points = "".join(
+        f'<div class="boxplot-critical" title="Outlier estatistico" style="left:{point:.2f}%;"></div>'
+        for point in outliers
+    )
+    highlight_points = outlier_points or (
+        f'<div class="boxplot-critical" title="Maior prioridade" style="left:{q4:.2f}%;"></div>'
+    )
     box_width = max(q3 - q1, 1.2)
     whisker_width = max(q4 - q0, 1.2)
     dispersion = "baixa dispersao" if (q3 - q1) <= 12 else "dispersao moderada" if (q3 - q1) <= 28 else "alta dispersao"
+    outlier_note = (
+        f"{len(outliers)} outlier(s) acima do limite interquartil"
+        if outliers
+        else "sem outliers; ponto vermelho = maior prioridade"
+    )
 
     return f"""
         <div class="metric-card boxplot-card">
@@ -866,9 +881,9 @@ def boxplot_card(ranking: pd.DataFrame) -> str:
                 <div class="boxplot-box" style="left:{q1:.2f}%; width:{box_width:.2f}%;"></div>
                 <div class="boxplot-median" style="left:{q2:.2f}%;"></div>
                 <div class="boxplot-cap" style="left:{q4:.2f}%;"></div>
-                <div class="boxplot-critical" style="left:{q4:.2f}%;"></div>
+                {highlight_points}
             </div>
-            <div class="boxplot-note">ponto vermelho = maior prioridade; {dispersion}</div>
+            <div class="boxplot-note">{outlier_note}; {dispersion}</div>
         </div>
     """
 
