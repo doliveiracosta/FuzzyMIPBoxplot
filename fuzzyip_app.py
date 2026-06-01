@@ -841,6 +841,38 @@ def priority_row_style(position: int, total: int, result: object | None = None) 
     return "#fde047", "#111827"
 
 
+def boxplot_card(ranking: pd.DataFrame) -> str:
+    index_column = "Indice ajustado" if "Indice ajustado" in ranking.columns else "Indice I/P"
+    values = pd.to_numeric(ranking[index_column], errors="coerce").dropna().clip(0.0, 1.0)
+    if values.empty:
+        return '<div class="metric-card boxplot-card"><span>Distribuicao I/P</span><div class="boxplot-note">Sem dados</div></div>'
+
+    q0 = float(values.min()) * 100
+    q1 = float(values.quantile(0.25)) * 100
+    q2 = float(values.quantile(0.50)) * 100
+    q3 = float(values.quantile(0.75)) * 100
+    q4 = float(values.max()) * 100
+    box_width = max(q3 - q1, 1.2)
+    whisker_width = max(q4 - q0, 1.2)
+    dispersion = "baixa dispersao" if (q3 - q1) <= 12 else "dispersao moderada" if (q3 - q1) <= 28 else "alta dispersao"
+
+    return f"""
+        <div class="metric-card boxplot-card">
+            <span>Distribuicao I/P</span>
+            <div class="boxplot-plot" aria-label="Boxplot horizontal do indice ajustado">
+                <div class="boxplot-track"></div>
+                <div class="boxplot-whisker" style="left:{q0:.2f}%; width:{whisker_width:.2f}%;"></div>
+                <div class="boxplot-cap" style="left:{q0:.2f}%;"></div>
+                <div class="boxplot-box" style="left:{q1:.2f}%; width:{box_width:.2f}%;"></div>
+                <div class="boxplot-median" style="left:{q2:.2f}%;"></div>
+                <div class="boxplot-cap" style="left:{q4:.2f}%;"></div>
+                <div class="boxplot-critical" style="left:{q4:.2f}%;"></div>
+            </div>
+            <div class="boxplot-note">ponto vermelho = maior prioridade; {dispersion}</div>
+        </div>
+    """
+
+
 def render_ranking_table(ranking: pd.DataFrame) -> None:
     display_labels = {
         "Indice I/P": "Indice",
@@ -904,7 +936,7 @@ def ranking_outputs() -> None:
             <div class="metric-card"><span>Ameacas</span><strong>{stats.threats}</strong></div>
             <div class="metric-card"><span>Oportunidades</span><strong>{stats.opportunities}</strong></div>
             <div class="metric-card"><span>Prioridade alta</span><strong>{stats.high_priority}</strong></div>
-            <div class="metric-card"><span>Media I/P</span><strong>{stats.mean_ip_index:.4f}</strong></div>
+            {boxplot_card(ranking)}
         </div>
         """,
         unsafe_allow_html=True,
