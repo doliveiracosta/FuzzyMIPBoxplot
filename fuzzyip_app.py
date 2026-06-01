@@ -753,19 +753,13 @@ def render_ranking_table(ranking: pd.DataFrame) -> None:
     )
 
 
-
 def horizontal_boxplot_metric_card(ranking: pd.DataFrame) -> str:
     """Retorna um card HTML com boxplot horizontal compacto, sem escala visivel."""
     index_column = "Indice ajustado" if "Indice ajustado" in ranking.columns else "Indice I/P"
     values = pd.to_numeric(ranking[index_column], errors="coerce").dropna()
 
     if values.empty or len(values) < 2:
-        return """
-        <div class="metric-card">
-            <span>Distribuicao I/P</span>
-            <strong style="font-size:1rem;">Dados insuficientes</strong>
-        </div>
-        """
+        return '<div class="metric-card"><span>Distribuicao I/P</span><strong style="font-size:1rem;">Dados insuficientes</strong></div>'
 
     q1 = float(values.quantile(0.25))
     median = float(values.quantile(0.50))
@@ -783,7 +777,7 @@ def horizontal_boxplot_metric_card(ranking: pd.DataFrame) -> str:
         return max(0.0, min(100.0, value * 100.0))
 
     outlier_html = "".join(
-        f'<span title="Ponto fora da curva: {v:.4f}" '
+        f'<span title="Ponto fora da curva: {float(v):.4f}" '
         f'style="position:absolute; left:{pct(float(v)):.2f}%; top:13px; width:8px; height:8px; '
         f'background:#dc2626; border-radius:50%; transform:translateX(-50%);"></span>'
         for v in outlier_values
@@ -792,21 +786,22 @@ def horizontal_boxplot_metric_card(ranking: pd.DataFrame) -> str:
     status = "sem outliers" if not outlier_values else f"{len(outlier_values)} outlier(s)"
     mean_value = float(values.mean())
 
-    return f"""
-    <div class="metric-card">
-        <span>Distribuicao I/P</span>
-        <div style="position:relative; height:36px; margin-top:8px;">
-            <div style="position:absolute; left:0; right:0; top:17px; height:2px; background:#e5e7eb;"></div>
-            <div style="position:absolute; left:{pct(min_value):.2f}%; width:{max(pct(max_value)-pct(min_value), 0.5):.2f}%; top:17px; height:2px; background:#64748b;"></div>
-            <div style="position:absolute; left:{pct(q1):.2f}%; width:{max(pct(q3)-pct(q1), 1.0):.2f}%; top:8px; height:20px; background:#bfdbfe; border:1px solid #2563eb; border-radius:4px;"></div>
-            <div title="Mediana: {median:.4f}" style="position:absolute; left:{pct(median):.2f}%; top:5px; height:26px; width:3px; background:#1d4ed8; transform:translateX(-50%);"></div>
-            <div title="Minimo: {min_value:.4f}" style="position:absolute; left:{pct(min_value):.2f}%; top:10px; height:16px; width:2px; background:#64748b;"></div>
-            <div title="Maximo: {max_value:.4f}" style="position:absolute; left:{pct(max_value):.2f}%; top:10px; height:16px; width:2px; background:#64748b;"></div>
-            {outlier_html}
-        </div>
-        <div style="font-size:.72rem; color:#6b7280; margin-top:2px;">media {mean_value:.4f} | {status}</div>
-    </div>
-    """
+    return (
+        '<div class="metric-card">'
+        '<span>Distribuicao I/P</span>'
+        '<div style="position:relative; height:36px; margin-top:8px;">'
+        '<div style="position:absolute; left:0; right:0; top:17px; height:2px; background:#e5e7eb;"></div>'
+        f'<div style="position:absolute; left:{pct(min_value):.2f}%; width:{max(pct(max_value)-pct(min_value), 0.5):.2f}%; top:17px; height:2px; background:#64748b;"></div>'
+        f'<div style="position:absolute; left:{pct(q1):.2f}%; width:{max(pct(q3)-pct(q1), 1.0):.2f}%; top:8px; height:20px; background:#bfdbfe; border:1px solid #2563eb; border-radius:4px;"></div>'
+        f'<div title="Mediana: {median:.4f}" style="position:absolute; left:{pct(median):.2f}%; top:5px; height:26px; width:3px; background:#1d4ed8; transform:translateX(-50%);"></div>'
+        f'<div title="Minimo: {min_value:.4f}" style="position:absolute; left:{pct(min_value):.2f}%; top:10px; height:16px; width:2px; background:#64748b;"></div>'
+        f'<div title="Maximo: {max_value:.4f}" style="position:absolute; left:{pct(max_value):.2f}%; top:10px; height:16px; width:2px; background:#64748b;"></div>'
+        f'{outlier_html}'
+        '</div>'
+        f'<div style="font-size:.72rem; color:#6b7280; margin-top:2px;">media {mean_value:.4f} | {status}</div>'
+        '</div>'
+    )
+
 
 def ranking_outputs() -> None:
     st.subheader("5. Ranking e leitura consultiva")
@@ -819,18 +814,16 @@ def ranking_outputs() -> None:
     stats = portfolio_stats(ranking)
     boxplot_card = horizontal_boxplot_metric_card(ranking)
 
-    st.markdown(
-        f"""
-        <div class="metric-band">
-            <div class="metric-card"><span>Acoes avaliadas</span><strong>{stats.total_actions}</strong></div>
-            <div class="metric-card"><span>Ameacas</span><strong>{stats.threats}</strong></div>
-            <div class="metric-card"><span>Oportunidades</span><strong>{stats.opportunities}</strong></div>
-            <div class="metric-card"><span>Prioridade alta</span><strong>{stats.high_priority}</strong></div>
-            {boxplot_card}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    metrics_html = (
+        '<div class="metric-band">'
+        f'<div class="metric-card"><span>Acoes avaliadas</span><strong>{stats.total_actions}</strong></div>'
+        f'<div class="metric-card"><span>Ameacas</span><strong>{stats.threats}</strong></div>'
+        f'<div class="metric-card"><span>Oportunidades</span><strong>{stats.opportunities}</strong></div>'
+        f'<div class="metric-card"><span>Prioridade alta</span><strong>{stats.high_priority}</strong></div>'
+        f'{boxplot_card}'
+        '</div>'
     )
+    st.markdown(metrics_html, unsafe_allow_html=True)
 
     render_ranking_table(ranking)
     st.info(consultive_conclusion(ranking))
