@@ -17,7 +17,6 @@ from fuzzyip.constants import (
     CLASS_COLORS,
     EVIDENCE_FACTORS,
     FUZZY_SCALE,
-    GITHUB_URL,
     LINKEDIN_URL,
     NATURES,
     ORCID_URL,
@@ -397,7 +396,6 @@ def render_cover() -> None:
         <div class="author-links">
             <a href="{ORCID_URL}" target="_blank">{orcid_logo}<span>Perfil academico</span></a>
             <a href="{LINKEDIN_URL}" target="_blank">{linkedin_logo}<span>Perfil profissional</span></a>
-            <a href="{GITHUB_URL}" target="_blank"><span>Projeto no GitHub</span></a>
         </div>
         """,
         unsafe_allow_html=True,
